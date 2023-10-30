@@ -51,6 +51,7 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
     const fp = path.join(LOG_DIR, filename);
 
     const existsRE = new RegExp(`${filter}`);
+    const filterRE = filter ? new RegExp(`.*${filter}.*$`, 'gm') : new RegExp(`\\S.*$`,'gm');
 
     let fileBytes = fs.statSync(fp).size;
     let blockSize = Math.min(524288, fileBytes);
@@ -67,7 +68,7 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
 
         //Read the file in chunks starting at the end
         while (!finished) {
-            console.log(`position: ${position}`);
+            //console.log(`position: ${position}`);
             //Read a chunk of the file
             const buf = await file.read({
                 buffer: Buffer.alloc(blockSize),
@@ -80,7 +81,6 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
             let buf1 = buf.buffer;
 
             //Check to see if the filter exists in this block
-
             if(!filter || existsRE.test(buf1.toString())) {
 
                 //Combine any leftovers from the previous iteration into the buffer
@@ -99,13 +99,8 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
                     buf1 = buf.buffer.subarray(firstBreak + 1);
                 }
 
-                //We only care about lines that have content
-                let re_results: RegExpMatchArray | null = null;
-                if (filter) {
-                    re_results = buf1.toString().match(new RegExp(`.*${filter}.*$`, 'gm'));
-                } else {
-                    re_results = buf1.toString().match(/\S.*$/gm);
-                }
+                //We only care about lines that match our regex
+                let re_results = buf1.toString().match(filterRE)
 
                 //If we get any matches we want to concat them into the event list in reverse order
                 if (re_results) {
