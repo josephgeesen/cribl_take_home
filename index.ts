@@ -1,5 +1,7 @@
 import express from 'express';
 import fs from 'fs';
+import path from 'path';
+import child from 'child_process';
 
 //HOST_UI determines if ui will be hosted
 const HOST_UI = (process.argv.indexOf('-ui') > -1);
@@ -14,6 +16,36 @@ const LOG_DIR = (logDirIndex > -1 && process.argv.length > logDirIndex + 1)?proc
 
 console.log(`HOST_UI:${HOST_UI}  PORT:${PORT}  LOG_DIR:${LOG_DIR}`);
 
+// readLog - the function which will actually read the log files and return lines
+// TODO: Investigate a pure Node solution instead of child process
+const readLog = (filename:string, entries:number|50, filter:string|null, callback:Function) => {
+    let fp = path.join(LOG_DIR,filename);
+
+    console.log(`filename:${filename}  entries:${entries}  filter:${filter}`)
+    let command = `tail -n${entries} ${fp}`;
+    if(filter) {
+        command = `tac ${fp} | grep -F -m${entries} ${filter}`;
+    }
+
+    //TODO: Investigate modifying this to speed up filters on large log files
+    child.exec(command, (err, stdout, stderr) => {
+        if(err) {
+            console.log(err);
+            callback(err);
+        }
+        if(stderr) {
+            console.log(stderr);
+        }
+        //stdout will return a string, so we need to split it.
+        let results = stdout.split("\n");
+        //splitting into lines MAY result in an extra empty line, so remove that if it occurs
+        if(results.length >= 1 && results[results.length-1] === "") results.pop();
+        //results will be in natural order, so reverse them
+        callback(null, results.reverse())
+    })
+}
+
+/* BEGIN API SERVER IMPL */
 const app = express();
 
 //IF HOST_UI is true, then actually provide the GET call for the UI.
@@ -45,13 +77,26 @@ app.get("/api/logs", (req , res, next) => {
 })
 
 //GET LOG - retrieve events from a log file
-app.get("/api/log", (req, res) => {
-    //TODO: read other parameters
-    //TODO: use fs to read lines from the end of designated file
-    //TODO: filter the lines
-    //TODO: return the log events
+app.get("/api/log/:filename", (req, res) => {
+    //Read the route param for filename
+    const filename = req.params.filename;
 
-    res.send("JUNK RESPONSE - REPLACE");
+    //Read the request params
+    const entries = req.query.entries && typeof req.query.entries == 'string' ? parseInt(req.query.entries) : 50;
+    const filter = req.query.filter && typeof req.query.filter == 'string'? req.query.filter : null;
+
+    //console.log(`filename:${filename}  entries:${entries}  filter:${filter}`)
+
+    let met_start = new Date();
+    readLog(filename, entries, filter, (err:Error, results:string[]) => {
+        let met_stop = new Date();
+        if(err) {
+            console.log(err);
+        }
+        console.log(results);
+        console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
+        res.send(results);
+    });
 })
 
 app.listen(PORT, () => {

@@ -61,7 +61,6 @@ GET - /api/log
 parameters - filename* : string representing the name of a file
              entries : number of entries to retrieve, defaults to 50
              filter : a string to filter entries by
-             regex : a regex to filter entries by
 description - retrieves a number of entries from the start/end of the log file. If a filter or regex is provided, it 
               will instead return the first n(where n is the entries parameter) entries that match the filter/regex
              
