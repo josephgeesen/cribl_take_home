@@ -11,6 +11,11 @@ const HOST_UI = (process.argv.indexOf('-ui') > -1);
 const portIndex = process.argv.indexOf('--port');
 const PORT = (portIndex > -1 && process.argv.length > portIndex + 1)?parseInt(process.argv[portIndex+1]):3001;
 
+//PORT will determine the port the server runs on
+const blockSizeIndex = process.argv.indexOf('--block');
+const BLOCK_SIZE = (blockSizeIndex > -1 && process.argv.length > blockSizeIndex + 1)?parseInt(process.argv[blockSizeIndex+1]):2097152;
+
+
 //LOG_DIR will determine the directory the app looks for logs in.
 const logDirIndex = process.argv.indexOf('--logs');
 const LOG_DIR = (logDirIndex > -1 && process.argv.length > logDirIndex + 1)?process.argv[logDirIndex+1]:"/var/log";
@@ -54,11 +59,14 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
     const filterRE = filter ? new RegExp(`.*${filter}.*$`, 'gm') : new RegExp(`\\S.*$`,'gm');
 
     let fileBytes = fs.statSync(fp).size;
-    let blockSize = Math.min(524288, fileBytes);
+    //let blockSize = Math.min(524288, fileBytes);
+    let blockSize = Math.min(BLOCK_SIZE, fileBytes);
     let position = fileBytes - blockSize;
     let finished = false;
     let leftovers = Buffer.alloc(0);
     let events :string[] = [];
+
+    let bufferDec = Buffer.alloc(blockSize);
 
     console.log(`File:${filename} Size:${fileBytes}`);
 
@@ -71,7 +79,7 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
             //console.log(`position: ${position}`);
             //Read a chunk of the file
             const buf = await file.read({
-                buffer: Buffer.alloc(blockSize),
+                buffer: bufferDec,
                 position: position,
                 length: blockSize
             });
