@@ -42,9 +42,8 @@ used between the primary and secondary servers, and the architecture is complete
 # Design
 
 ## PROPS
-Store app configurations in a properties file.
+Pass app configurations as arguments on the node command.
 
-APIKEY - define an API Key used in all API calls, will be generated if non-existent on first run.
 HOST_UI - tells the application if it should host the provided UI, defaults to false.
 PORT - defines the PORT that express will listen on.
 LOG_DIR - defines the directory within which the app will look for logs, defaults to /var/log
@@ -55,13 +54,11 @@ Security, probably safe to just use an API Key for access, provision on first st
 
 ### Get Log Files
 GET - /api/logs
-parameters - apikey* : apikey provisioned for the app
 description - retrieves a list of the files in the log directory
 
 ### Get Log Events
 GET - /api/log
-parameters - apikey* : api key provisioned for the app
-             filename* : string representing the name of a file
+parameters - filename* : string representing the name of a file
              entries : number of entries to retrieve, defaults to 50
              filter : a string to filter entries by
              regex : a regex to filter entries by

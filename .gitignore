@@ -131,3 +131,5 @@ dist
 
 # IDEA
 .idea/
+
+*.js
