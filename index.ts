@@ -149,6 +149,30 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
     }
 }
 
+const readDir = async (callback:Function) => {
+    try {
+        //Asynchronously retrieve the list of files
+        const files = await fs.promises.readdir(path.join(LOG_DIR));
+
+        let file_results : {name:string,size:number}[] = []
+
+        //Loop through the files to get their sizes
+        for (const file of files) {
+            const fileBytes = fs.statSync(path.join(LOG_DIR, file)).size;
+            file_results.push({
+                name:file,
+                size:fileBytes
+            });
+        }
+
+        //Return the files via the callback
+        callback(null, file_results);
+    }
+    catch (err) {
+        console.error(err)
+        callback(err);
+    }
+}
 /* BEGIN API SERVER IMPL */
 const app = express();
 
@@ -164,18 +188,12 @@ if(HOST_UI) {
 //GET LOGS - retrieve a list of log files
 app.get("/api/logs", (req , res, next) => {
     // Use fs to read the log file directory.
-    fs.readdir(LOG_DIR, (err, files) => {
-        // If an error occurs, log it and pass it to express
+    readDir((err:Error, files:{name:string,size:number}[]) => {
         if(err) {
             console.error(err);
             next(err);
         } else {
-            //Perform a filter to remove any non-log/txt files from the list.
-            //TODO: Investigate changing how this filter works.
-            //TODO: Investigate returning stats on the files instead of just their names.
-            let resp = files.filter((fn)=>{return /^\S+\.(log|txt)/.test(fn)})
-            //Return the filtered list
-            res.send(resp);
+            res.send(files);
         }
     })
 })
