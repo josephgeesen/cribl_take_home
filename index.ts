@@ -195,7 +195,7 @@ app.get("/api/logs", (req , res, next) => {
 })
 
 //GET LOG - retrieve events from a log file
-app.get("/api/log/:filename", (req, res) => {
+app.get("/api/log/:filename", (req, res, next) => {
     //Read the route param for filename
     const filename = req.params.filename;
 
@@ -211,13 +211,14 @@ app.get("/api/log/:filename", (req, res) => {
 
         if(err) {
             console.error(err);
+            next(err);
+        } else {
+            //Log the execution time in ms.
+            console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
+
+            //Send the results to the UI.
+            res.send(results);
         }
-
-        //Log the execution time in ms.
-        console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
-
-        //Send the results to the UI.
-        res.send(results);
     });
     //Unused function path that utilized grep/tac/tail to fetch the log events
     /*
