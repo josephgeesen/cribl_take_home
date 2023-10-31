@@ -200,7 +200,7 @@ app.get("/api/log/:filename", (req, res, next) => {
     const filename = req.params.filename;
 
     //Read the request params
-    const entries = req.query.entries && typeof req.query.entries == 'string' ? parseInt(req.query.entries) : 50;
+    const entries = req.query.entries && typeof req.query.entries == 'string' && !!parseInt(req.query.entries) ? parseInt(req.query.entries) : 50;
     const filter = req.query.filter && typeof req.query.filter == 'string'? req.query.filter : null;
 
     //Just for personal diagnostics, take a start time
