@@ -178,11 +178,7 @@ const app = express();
 
 //IF HOST_UI is true, then actually provide the GET call for the UI.
 if(HOST_UI) {
-    app.get("/", (req, res) => {
-        //TODO: serve a basic UI for interacting with the rest calls
-
-        res.send("NO UI IN PLACE");
-    })
+    app.use('/', express.static(path.join(__dirname, 'ui/')));
 }
 
 //GET LOGS - retrieve a list of log files
