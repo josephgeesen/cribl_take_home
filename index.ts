@@ -15,7 +15,6 @@ const PORT = (portIndex > -1 && process.argv.length > portIndex + 1)?parseInt(pr
 const blockSizeIndex = process.argv.indexOf('--block');
 const BLOCK_SIZE = (blockSizeIndex > -1 && process.argv.length > blockSizeIndex + 1)?parseInt(process.argv[blockSizeIndex+1]):2097152;
 
-
 //LOG_DIR will determine the directory the app looks for logs in.
 const logDirIndex = process.argv.indexOf('--logs');
 const LOG_DIR = (logDirIndex > -1 && process.argv.length > logDirIndex + 1)?process.argv[logDirIndex+1]:"/var/log";
@@ -53,24 +52,23 @@ const readLog = (filename:string, entries:number|50, filter:string|null, callbac
  */
 
 const readLog2 = async (filename:string, entries:number|50, filter:string|null, callback:Function) => {
-    const fp = path.join(LOG_DIR, filename);
-
-    const existsRE = new RegExp(`${filter}`);
-    const filterRE = filter ? new RegExp(`.*${filter}.*$`, 'gm') : new RegExp(`\\S.*$`,'gm');
-
-    let fileBytes = fs.statSync(fp).size;
-    //let blockSize = Math.min(524288, fileBytes);
-    let blockSize = Math.min(BLOCK_SIZE, fileBytes);
-    let position = fileBytes - blockSize;
-    let finished = false;
-    let leftovers = Buffer.alloc(0);
-    let events :string[] = [];
-
-    let bufferDec = Buffer.alloc(blockSize);
-
-    console.log(`File:${filename} Size:${fileBytes}`);
-
     try {
+        const fp = path.join(LOG_DIR, filename);
+
+        const existsRE = new RegExp(`${filter}`);
+        const filterRE = filter ? new RegExp(`.*${filter}.*$`, 'gm') : new RegExp(`\\S.*$`,'gm');
+
+        let fileBytes = fs.statSync(fp).size;
+        let blockSize = Math.min(BLOCK_SIZE, fileBytes);
+        let position = fileBytes - blockSize;
+        let finished = false;
+        let leftovers = Buffer.alloc(0);
+        let events :string[] = [];
+
+        let bufferDec = Buffer.alloc(blockSize);
+
+        console.log(`File:${filename} Size:${fileBytes}`);
+
         //Open the file for reading
         const file = await fs.promises.open(fp);
 
@@ -146,6 +144,7 @@ const readLog2 = async (filename:string, entries:number|50, filter:string|null, 
 
     } catch(err) {
         console.error(err);
+        callback(err);
     }
 }
 
@@ -196,30 +195,59 @@ app.get("/api/logs", (req , res, next) => {
 
 //GET LOG - retrieve events from a log file
 app.get("/api/log/:filename", (req, res, next) => {
+    let errored = false;
+
     //Read the route param for filename
     const filename = req.params.filename;
 
-    //Read the request params
-    const entries = req.query.entries && typeof req.query.entries == 'string' && !!parseInt(req.query.entries) ? parseInt(req.query.entries) : 50;
-    const filter = req.query.filter && typeof req.query.filter == 'string'? req.query.filter : null;
+    //Ensure that filename is actually passed, as it is passed as part of the route this is highly unlikely to every be triggered.
+    if(!filename) {
+        errored = true;
+        res.status(400).send({status:400, message:"'filename' is a required field."});
+    }
+
+    //Ensure that the specified file exists before trying to read it.
+    if(!fs.existsSync(path.join(LOG_DIR,filename))) {
+        errored = true;
+        res.status(404).send({status:404, message:`${filename} does not exist.`});
+    }
+
+    //TODO: Prevent accessing other directories with clever filenaming
+
+    //Ensure that if entries is specified, that it is a positive numeric value
+    let entries = 50;
+    if(!errored && req.query.entries && typeof req.query.entries == 'string') {
+        entries = parseInt(req.query.entries);
+        if(isNaN(entries) || entries < 1) {
+            errored = true;
+            res.status(400).send({status:400, message:"'entries' if specified must be a positive numeric value of at least 1."});
+        }
+    }
+
+    let filter = null;
+    if(!errored && req.query.filter && typeof req.query.filter == 'string') {
+        filter = req.query.filter;
+    }
 
     //Just for personal diagnostics, take a start time
-    let met_start = new Date();
-    readLog2(filename, entries, filter, (err:Error, results:string[]) => {
-        //Capture the time we get a return from the readLog function
-        let met_stop = new Date();
+    if(!errored) {
+        let met_start = new Date();
+        readLog2(filename, entries, filter, (err: Error, results: string[]) => {
+            //Capture the time we get a return from the readLog function
+            let met_stop = new Date();
 
-        if(err) {
-            console.error(err);
-            next(err);
-        } else {
-            //Log the execution time in ms.
-            console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
+            if (err) {
+                console.error(err);
+                next(err);
+            } else {
+                //Log the execution time in ms.
+                console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
 
-            //Send the results to the UI.
-            res.send(results);
-        }
-    });
+                //Send the results to the UI.
+                res.send(results);
+            }
+        });
+    }
     //Unused function path that utilized grep/tac/tail to fetch the log events
     /*
     readLog(filename, entries, filter, (err:Error, results:string[]) => {
