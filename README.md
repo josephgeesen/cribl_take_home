@@ -111,6 +111,6 @@ The following command can be used to set up the app for testing.
 
     node index.js --port 3001 --logs ./test/logs
 
-In a new window, the following command can be run:
+In a new terminal, the following command can be run:
 
     npm run test
