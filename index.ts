@@ -164,6 +164,7 @@ const readDir = async (callback:Function) => {
             });
         }
 
+
         //Return the files via the callback
         callback(null, file_results);
     }
@@ -186,7 +187,7 @@ app.get("/api/logs", (req , res, next) => {
     readDir((err:Error, files:{name:string,size:number}[]) => {
         if(err) {
             console.error(err);
-            next(err);
+            res.status(500).send({status:500, message:err.message});
         } else {
             res.send(files);
         }
@@ -197,13 +198,18 @@ app.get("/api/logs", (req , res, next) => {
 app.get("/api/log/:filename", (req, res, next) => {
     let errored = false;
 
-    //Read the route param for filename
-    const filename = req.params.filename;
+    //Read the route param for filename, and normalize it
+    const filename = path.normalize(req.params.filename);
 
     //Ensure that filename is actually passed, as it is passed as part of the route this is highly unlikely to every be triggered.
     if(!filename) {
         errored = true;
         res.status(400).send({status:400, message:"'filename' is a required field."});
+    //Prevent path traversal
+    } else if(/^(\.\.(\/|\\|$))+/.test(filename)) {
+        errored = true;
+        res.status(400).send({status:400, message:"Access Denied."});
+
     }
 
     //Ensure that the specified file exists before trying to read it.
@@ -211,8 +217,6 @@ app.get("/api/log/:filename", (req, res, next) => {
         errored = true;
         res.status(404).send({status:404, message:`${filename} does not exist.`});
     }
-
-    //TODO: Prevent accessing other directories with clever filenaming
 
     //Ensure that if entries is specified, that it is a positive numeric value
     let entries = 50;
@@ -226,7 +230,8 @@ app.get("/api/log/:filename", (req, res, next) => {
 
     let filter = null;
     if(!errored && req.query.filter && typeof req.query.filter == 'string') {
-        filter = req.query.filter;
+        //Convert reserved characters to literals
+        filter = req.query.filter.replace(/([.^$|*+?()\[\]{}\\-])/g, "\\$1");
     }
 
     //Just for personal diagnostics, take a start time
@@ -238,7 +243,7 @@ app.get("/api/log/:filename", (req, res, next) => {
 
             if (err) {
                 console.error(err);
-                next(err);
+                res.status(500).send({status:500, message:err.message});
             } else {
                 //Log the execution time in ms.
                 console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
