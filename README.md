@@ -105,3 +105,12 @@ Upon completion, it also logs the time it took to complete the read.
 
     
     
+## Automated Tests
+The automated tests rely on using a known log file and running on port 3001. A test log file has been provided in the test/logs directory.
+The following command can be used to set up the app for testing.
+
+    node index.js --port 3001 --logs ./test/logs
+
+In a new window, the following command can be run:
+
+    npm run test
