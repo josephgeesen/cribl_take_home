@@ -208,7 +208,7 @@ app.get("/api/log/:filename", (req, res, next) => {
     //Prevent path traversal
     } else if(/^(\.\.(\/|\\|$))+/.test(filename)) {
         errored = true;
-        res.status(400).send({status:400, message:"Access Denied."});
+        res.status(403).send({status:403, message:"Access Denied."});
 
     }
 
