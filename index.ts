@@ -196,63 +196,59 @@ app.get("/api/logs", (req , res, next) => {
 
 //GET LOG - retrieve events from a log file
 app.get("/api/log/:filename", (req, res, next) => {
-    let errored = false;
-
     //Read the route param for filename, and normalize it
     const filename = path.normalize(req.params.filename);
 
     //Ensure that filename is actually passed, as it is passed as part of the route this is highly unlikely to every be triggered.
     if(!filename) {
-        errored = true;
         res.status(400).send({status:400, message:"'filename' is a required field."});
+        return;
     //Prevent path traversal
     } else if(/^(\.\.(\/|\\|$))+/.test(filename)) {
-        errored = true;
         res.status(403).send({status:403, message:"Access Denied."});
+        return;
 
     }
 
     //Ensure that the specified file exists before trying to read it.
     if(!fs.existsSync(path.join(LOG_DIR,filename))) {
-        errored = true;
         res.status(404).send({status:404, message:`${filename} does not exist.`});
+        return;
     }
 
     //Ensure that if entries is specified, that it is a positive numeric value
     let entries = 50;
-    if(!errored && req.query.entries && typeof req.query.entries == 'string') {
+    if(req.query.entries && typeof req.query.entries == 'string') {
         entries = parseInt(req.query.entries);
         if(isNaN(entries) || entries < 1) {
-            errored = true;
             res.status(400).send({status:400, message:"'entries' if specified must be a positive numeric value of at least 1."});
+            return;
         }
     }
 
     let filter = null;
-    if(!errored && req.query.filter && typeof req.query.filter == 'string') {
+    if(req.query.filter && typeof req.query.filter == 'string') {
         //Convert reserved characters to literals
         filter = req.query.filter.replace(/([.^$|*+?()\[\]{}\\-])/g, "\\$1");
     }
 
     //Just for personal diagnostics, take a start time
-    if(!errored) {
-        let met_start = new Date();
-        readLog2(filename, entries, filter, (err: Error, results: string[]) => {
-            //Capture the time we get a return from the readLog function
-            let met_stop = new Date();
+    let met_start = new Date();
+    readLog2(filename, entries, filter, (err: Error, results: string[]) => {
+        //Capture the time we get a return from the readLog function
+        let met_stop = new Date();
 
-            if (err) {
-                console.error(err);
-                res.status(500).send({status:500, message:err.message});
-            } else {
-                //Log the execution time in ms.
-                console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
+        if (err) {
+            console.error(err);
+            res.status(500).send({status:500, message:err.message});
+        } else {
+            //Log the execution time in ms.
+            console.log(`Execution time: ${met_stop.getTime() - met_start.getTime()}`);
 
-                //Send the results to the UI.
-                res.send(results);
-            }
-        });
-    }
+            //Send the results to the UI.
+            res.send(results);
+        }
+    });
     //Unused function path that utilized grep/tac/tail to fetch the log events
     /*
     readLog(filename, entries, filter, (err:Error, results:string[]) => {
